@@ -1,3 +1,4 @@
+from __future__ import annotations
 from enum import Enum
 from raspi import raspi as r
 
@@ -25,7 +26,7 @@ def set_indicator(to_on: Led) -> None:
         to_off = Led.UP
 
     r.pins_high(to_on)
-    r.pins_low(to_off)
+    r.pins_low(to_off.value)
 
 
 def toggle() -> None:

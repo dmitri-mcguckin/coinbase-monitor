@@ -13,7 +13,7 @@ __CACHED_ACCOUNTS = os.path.expanduser('~/.cache/coinbase-monitor/'
                                        'accounts.json')
 __BASE_CURRENCY = 'USD'
 __UPDATE_HISTORY = dt.timedelta(minutes=10)
-__EXCLUDED_CURRENCIES = ['XRP']
+__INCLUDED_CURRENCIES = ['ATOM', 'BTC', 'ETH']
 __INDICATED_CURRENCY = 'ATOM'
 __LED_INDICATOR = False
 __HW_CHECK = True
@@ -73,7 +73,7 @@ def init_coinbase() -> cw.client.Client:
 
 
 def get_active_accounts(client: cw.client.Client) -> [cw.model.Account]:
-    return list(filter(lambda x: x.currency not in __EXCLUDED_CURRENCIES,
+    return list(filter(lambda x: x.currency in __INCLUDED_CURRENCIES,
                        client.get_accounts()['data']))
 # accounts = client.get_accounts()['data']
 # return list(filter(lambda x: float(x['balance']['amount']) > 0, accounts))
@@ -129,7 +129,7 @@ def main() -> None:
     market_history = load_market_history()
     client = init_coinbase()
     accounts = get_active_accounts(client)
-    currencies = get_active_currencies(accounts)
+    currencies = [__INDICATED_CURRENCY]
     currency_percs = {}
 
     # Check if there are any accounts with a balance
@@ -142,40 +142,52 @@ def main() -> None:
         print('No market history exists, creating now...')
         update_market_history(client, market_history)
 
-    now = dt.datetime.now()
-    updated = dt.datetime \
-                .fromtimestamp(float(list(market_history.keys())[-1]))
-    elapsed = dt.timedelta(seconds=(now.timestamp() - updated.timestamp()))
+    while(True):
+        now = dt.datetime.now()
+        updated = dt.datetime \
+                    .fromtimestamp(float(list(market_history.keys())[-1]))
+        elapsed = dt.timedelta(seconds=(now.timestamp() - updated.timestamp()))
 
-    print(f'Last update was {updated.ctime()}'
-          f' ({int(elapsed.total_seconds() / 60)} minutes ago),')
+        print(f'It is: {now.ctime()}'
+              f'\nLast update was {updated.ctime()}'
+              f' ({int(elapsed.total_seconds() / 60)} minutes ago),')
 
-    if(elapsed.total_seconds() > __UPDATE_HISTORY.total_seconds()):
-        update_market_history(client, market_history)
-    else:
-        print(f'{int((__UPDATE_HISTORY - elapsed).total_seconds())}s until'
-              ' next update!')
-
-    # Display the deltas
-    for c in sorted(currencies):
-        deltas = get_exchange_delta(client, c, market_history)
-        print(f'{c}:')
-        currency_percs[c] = deltas
-        for d, percentage in deltas.items():
-            d = dt.timedelta(seconds=d)
-            print(f'\t{round_timedelta(d)}: {"+" if percentage > 0 else ""}'
-                  f'{percentage}%')
-
-    # Toggle the indicator
-    if(__LED_INDICATOR):
-        ind_percs = currency_percs.get(__INDICATED_CURRENCY)
-        if(ind_percs is not None):
-            latest_perc = ind_percs[sorted(ind_percs.keys())[0]]
-            led = Led.UP if latest_perc > 0 else Led.DOWN
-            set_indicator(led)
+        if(elapsed.total_seconds() > __UPDATE_HISTORY.total_seconds()):
+            update_market_history(client, market_history)
         else:
-            print(f'No percentages found for {__INDICATED_CURRENCY}')
-            for _ in range(5):
-                set_indicator(Led.UP)
-                time.sleep(0.1)
-                set_indicator(Led.DOWN)
+            print(f'\t{int((__UPDATE_HISTORY - elapsed).total_seconds())}s'
+                  ' until next update!')
+
+        # Display the deltas
+        for c in sorted(currencies):
+            deltas = get_exchange_delta(client, c, market_history)
+            print(f'{c}:')
+            currency_percs[c] = deltas
+            for d, percentage in deltas.items():
+                d = dt.timedelta(seconds=d)
+                print(f'\t{round_timedelta(d)}: '
+                      f'{"+" if percentage > 0 else ""}{percentage}%')
+
+        # Toggle the indicator
+        if(__LED_INDICATOR):
+            ind_percs = currency_percs.get(__INDICATED_CURRENCY)
+            if(ind_percs is not None):
+                latest_perc = ind_percs[sorted(ind_percs.keys())[0]]
+                led = Led.UP if latest_perc > 0 else Led.DOWN
+                set_indicator(led)
+            else:
+                print(f'No percentages found for {__INDICATED_CURRENCY}')
+                for _ in range(5):
+                    set_indicator(Led.UP)
+                    time.sleep(0.1)
+                    set_indicator(Led.DOWN)
+
+        # Sleep until halfway to the update point
+        block = True
+        start = dt.datetime.now()
+        while(block):
+            time.sleep(5)
+            now = dt.datetime.now()
+            block = (now - start) < __UPDATE_HISTORY
+            left = int((__UPDATE_HISTORY - (now - start)).total_seconds())
+            print(f'{left}s until next update')
