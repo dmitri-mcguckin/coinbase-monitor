@@ -23,7 +23,8 @@ setuptools.setup(
         "Topic :: System :: Monitoring"
     ],
     install_requires=[
-        "coinbase"
+        "coinbase",
+        "raspi"
     ],
     extras_require={
         "dev": [
@@ -37,7 +38,7 @@ setuptools.setup(
             "python-can"
         ]
     },
-    python_requires='>=3.8.5',
+    python_requires='>=3',
     entry_points={
         "console_scripts": [
             f'{cm.APP_NAME} = coinbase_monitor.__main__:main',
