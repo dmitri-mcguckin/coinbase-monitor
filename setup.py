@@ -23,8 +23,9 @@ setuptools.setup(
         "Topic :: System :: Monitoring"
     ],
     install_requires=[
-        "coinbase",
-        "raspi"
+        "urwid",
+        "sql",
+        "coinbase"
     ],
     extras_require={
         "dev": [
